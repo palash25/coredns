@@ -13,6 +13,7 @@ import (
 	"github.com/miekg/dns"
 )
 
+// Replacer replaces labels for values in strings.
 type Replacer struct {
 	valueFunc func(request.Request, *dnstest.Recorder, string) string
 	labels    []string
@@ -202,5 +203,6 @@ func addrToRFC3986(addr string) string {
 const (
 	headerReplacer = "{>"
 	labelReplacer  = "{/"
-	EmptyValue     = "-" // EmptyValue is the default empty value.
+	// EmptyValue is the default empty value.
+	EmptyValue = "-"
 )
