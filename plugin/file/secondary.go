@@ -123,6 +123,9 @@ Restart:
 	retryTicker := time.NewTicker(retry)
 	expireTicker := time.NewTicker(expire)
 
+	start := time.Now()
+	UpdatedSeconds.WithLabelValues(z.origin).Observe(time.Since(start).Seconds())
+
 	for {
 		select {
 		case <-expireTicker.C:
@@ -145,10 +148,12 @@ Restart:
 			}
 
 			if ok {
+				UpdatedSerial.WithLabelValues(z.origin).Set(float64(z.Apex.SOA.Serial))
 				if err := z.TransferIn(); err != nil {
 					// transfer failed, leave retryActive true
 					break
 				}
+				UpdatedSuccess.WithLabelValues(z.origin).Set(float64(time.Now().Unix()))
 			}
 
 			// no errors, stop timers and restart
@@ -160,23 +165,32 @@ Restart:
 
 		case <-refreshTicker.C:
 
+			start = time.Now()
+			RefreshSeconds.WithLabelValues(z.origin).Observe(time.Since(start).Seconds())
+
 			time.Sleep(jitter(5000)) // 5s randomize
 
 			ok, err := z.shouldTransfer()
 			if err != nil {
+				FailedRefreshCount.WithLabelValues(z.origin).Inc()
 				log.Warningf("Failed refresh check %s", err)
 				retryActive = true
 				continue
 			}
 
 			if ok {
+				UpdatedSerial.WithLabelValues(z.origin).Set(float64(z.Apex.SOA.Serial))
 				if err := z.TransferIn(); err != nil {
 					// transfer failed
+
+					FailedRefreshCount.WithLabelValues(z.origin).Inc()
 					retryActive = true
 					break
 				}
+				UpdatedSuccess.WithLabelValues(z.origin).Set(float64(time.Now().Unix()))
 			}
 
+			RefreshCount.WithLabelValues(z.origin).Inc()
 			// no errors, stop timers and restart
 			retryActive = false
 			refreshTicker.Stop()

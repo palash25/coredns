@@ -34,6 +34,19 @@ When a zone is due to be refreshed (Refresh timer fires) a random jitter of 5 se
 applied, before fetching. In the case of retry this will be 2 seconds. If there are any errors
 during the transfer the transfer fails; this will be logged.
 
+## Metrics
+
+If monitoring is enabled (via the *prometheus* directive) then the following metric is exported:
+
+* `coredns_secondary_update_duration_seconds{zone}` - histogram of the duration of an update.
+* `coredns_secondary_serial{zone}` - gauge of last updated serial number.
+* `coredns_secondary_last_updated_seconds{zone}` - gauge of successful updates.
+* `coredns_secondary_refreshes_total{zone}` - number of successful refreshes while updating.
+* `coredns_secondary_refreshes_failed_total{zone}` - number of failed refreshes while updating.
+* `coredns_secondary_refresh_seconds{zone}` - duration of the last refresh.
+
+Each metric has a label `zone` which is the zonename used for the request/response.
+
 ## Examples
 
 Transfer `example.org` from 10.0.1.1, and if that fails try 10.1.2.1.

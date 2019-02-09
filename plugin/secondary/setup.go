@@ -4,6 +4,7 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/file"
+	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/plugin/pkg/parse"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 
@@ -17,6 +18,12 @@ func setup(c *caddy.Controller) error {
 	if err != nil {
 		return plugin.Error("secondary", err)
 	}
+
+	c.OnStartup(func() error {
+		metrics.MustRegister(c, file.UpdatedSeconds, file.UpdatedSerial, file.UpdatedSuccess,
+			file.RefreshCount, file.RefreshSeconds, file.FailedRefreshCount)
+		return nil
+	})
 
 	// Add startup functions to retrieve the zone and keep it up to date.
 	for _, n := range zones.Names {
