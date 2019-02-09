@@ -107,11 +107,6 @@ kubernetes [ZONES...] {
   This allows the querying pod to continue searching for the service in the search path.
   The search path could, for example, include another Kubernetes cluster.
 
-## Health
-
-This plugin implements dynamic health checking. Currently this is limited to reporting healthy when
-the API has synced.
-
 ## Watch
 
 This plugin implements watch. A client that connects to CoreDNS using `coredns/client` can be notified
