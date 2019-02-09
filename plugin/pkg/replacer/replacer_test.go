@@ -32,6 +32,56 @@ func TestReplacer(t *testing.T) {
 	}
 }
 
+func TestLabels(t *testing.T) {
+	w := dnstest.NewRecorder(&test.ResponseWriter{})
+	r := new(dns.Msg)
+	r.SetQuestion("example.org.", dns.TypeHINFO)
+	r.Id = 1053
+	r.AuthenticatedData = true
+	r.CheckingDisabled = true
+	w.WriteMsg(r)
+	state := request.Request{W: w, Req: r}
+
+	replacer := New()
+	ctx := context.TODO()
+
+	// This couples the test very tightly to the code, but so be it.
+	expect := map[string]string{
+		"{type}":                    "HINFO",
+		"{name}":                    "example.org.",
+		"{class}":                   "IN",
+		"{proto}":                   "udp",
+		"{size}":                    "29",
+		"{remote}":                  "10.240.0.1",
+		"{port}":                    "40212",
+		"{local}":                   "127.0.0.1",
+		headerReplacer + "id}":      "1053",
+		headerReplacer + "opcode}":  "0",
+		headerReplacer + "do}":      "false",
+		headerReplacer + "bufsize}": "512",
+		"{rcode}":                   "NOERROR",
+		"{rsize}":                   "29",
+		"{duration}":                "0",
+		headerReplacer + "rrflags}": "rd,ad,cd",
+	}
+	if len(expect) != len(labels) {
+		t.Fatalf("Expect %d labels, got %d", len(expect), len(labels))
+	}
+
+	for _, lbl := range labels {
+		repl := replacer.Replace(ctx, state, w, lbl)
+		if lbl == "{duration}" {
+			if repl[len(repl)-1] != 's' {
+				t.Errorf("Expected seconds, got %q", repl)
+			}
+			continue
+		}
+		if repl != expect[lbl] {
+			t.Errorf("Expected value %q, got %q", expect[lbl], repl)
+		}
+	}
+}
+
 func BenchmarkReplacer(b *testing.B) {
 	w := dnstest.NewRecorder(&test.ResponseWriter{})
 	r := new(dns.Msg)
