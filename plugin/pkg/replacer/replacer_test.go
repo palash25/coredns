@@ -137,7 +137,7 @@ func TestMetadataReplacement(t *testing.T) {
 	}
 
 	m.ServeDNS(context.TODO(), &test.ResponseWriter{}, new(dns.Msg))
-	ctx := next.ctx // important because the m.ServeDNS has no populated the context
+	ctx := next.ctx // important because the m.ServeDNS has only now populated the context
 
 	w := dnstest.NewRecorder(&test.ResponseWriter{})
 	r := new(dns.Msg)
