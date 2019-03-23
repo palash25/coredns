@@ -8,6 +8,7 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics"
+	"github.com/coredns/coredns/plugin/pkg"
 	"github.com/coredns/coredns/plugin/pkg/parse"
 	pkgtls "github.com/coredns/coredns/plugin/pkg/tls"
 	"github.com/coredns/coredns/plugin/pkg/transport"
@@ -212,11 +213,11 @@ func parseBlock(c *caddyfile.Dispenser, f *Forward) error {
 		}
 		switch x := c.Val(); x {
 		case "random":
-			f.p = &random{}
+			f.p = &pkg.Random{}
 		case "round_robin":
-			f.p = &roundRobin{}
+			f.p = &pkg.RoundRobin{}
 		case "sequential":
-			f.p = &sequential{}
+			f.p = &pkg.Sequential{}
 		default:
 			return c.Errf("unknown policy '%s'", x)
 		}

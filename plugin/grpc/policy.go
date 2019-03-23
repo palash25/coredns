@@ -1,5 +1,6 @@
 package grpc
 
+/*
 import (
 	"math/rand"
 	"sync/atomic"
@@ -62,3 +63,4 @@ func (r *sequential) String() string { return "sequential" }
 func (r *sequential) List(p []*Proxy) []*Proxy {
 	return p
 }
+*/

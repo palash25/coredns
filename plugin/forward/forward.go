@@ -12,6 +12,7 @@ import (
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/debug"
+	"github.com/coredns/coredns/plugin/pkg"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/request"
 
@@ -25,7 +26,7 @@ var log = clog.NewWithPlugin("forward")
 // of proxies each representing one upstream proxy.
 type Forward struct {
 	proxies    []*Proxy
-	p          Policy
+	p          pkg.Policy
 	hcInterval time.Duration
 
 	from    string
@@ -43,7 +44,7 @@ type Forward struct {
 
 // New returns a new Forward.
 func New() *Forward {
-	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(random), from: ".", hcInterval: hcInterval}
+	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(pkg.Random), from: ".", hcInterval: hcInterval}
 	return f
 }
 
@@ -63,7 +64,7 @@ func (f *Forward) Name() string { return "forward" }
 func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 
 	state := request.Request{W: w, Req: r}
-	if !f.match(state) {
+	if !pkg.Match(f, state, f.Name(), f.ignored) {
 		return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
 	}
 
@@ -91,8 +92,8 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			}
 			// All upstream proxies are dead, assume healtcheck is completely broken and randomly
 			// select an upstream to connect to.
-			r := new(random)
-			proxy = r.List(f.proxies)[0]
+			r := new(pkg.Random)
+			proxy = r.List(structToInterface(f.proxies))[0].(*Proxy)
 
 			HealthcheckBrokenCount.Add(1)
 		}
@@ -163,27 +164,6 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	return dns.RcodeServerFailure, ErrNoHealthy
 }
 
-func (f *Forward) match(state request.Request) bool {
-	if !plugin.Name(f.from).Matches(state.Name()) || !f.isAllowedDomain(state.Name()) {
-		return false
-	}
-
-	return true
-}
-
-func (f *Forward) isAllowedDomain(name string) bool {
-	if dns.Name(name) == dns.Name(f.from) {
-		return true
-	}
-
-	for _, ignore := range f.ignored {
-		if plugin.Name(ignore).Matches(name) {
-			return false
-		}
-	}
-	return true
-}
-
 // ForceTCP returns if TCP is forced to be used even when the request comes in over UDP.
 func (f *Forward) ForceTCP() bool { return f.opts.forceTCP }
 
@@ -191,7 +171,18 @@ func (f *Forward) ForceTCP() bool { return f.opts.forceTCP }
 func (f *Forward) PreferUDP() bool { return f.opts.preferUDP }
 
 // List returns a set of proxies to be used for this client depending on the policy in f.
-func (f *Forward) List() []*Proxy { return f.p.List(f.proxies) }
+//func (f *Forward) List() []*Proxy { return f.p.List(f.proxies).([]*Proxy) }
+
+func (f *Forward) List() []*Proxy {
+	slice := f.p.List(structToInterface(f.proxies))
+	proxySlice := make([]*Proxy, len(slice))
+	for _, s := range slice {
+		proxySlice = append(proxySlice, s.(*Proxy))
+	}
+	return proxySlice
+}
+
+func (f *Forward) From() string { return f.from }
 
 var (
 	// ErrNoHealthy means no healthy proxies left.
@@ -218,3 +209,12 @@ type options struct {
 }
 
 const defaultTimeout = 5 * time.Second
+
+func structToInterface(proxies []*Proxy) []interface{} {
+	res := make([]interface{}, len(proxies))
+
+	for _, p := range proxies {
+		res = append(res, p)
+	}
+	return res
+}

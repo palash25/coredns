@@ -7,6 +7,7 @@ import (
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/debug"
+	"github.com/coredns/coredns/plugin/pkg"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -17,7 +18,7 @@ import (
 // It has a list of proxies each representing one upstream proxy.
 type GRPC struct {
 	proxies []*Proxy
-	p       Policy
+	p       pkg.Policy
 
 	from    string
 	ignored []string
@@ -31,7 +32,7 @@ type GRPC struct {
 // ServeDNS implements the plugin.Handler interface.
 func (g *GRPC) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
-	if !g.match(state) {
+	if !pkg.Match(g, state, g.Name(), g.ignored) {
 		return plugin.NextOrFailure(g.Name(), g.Next, ctx, w, r)
 	}
 
@@ -93,7 +94,7 @@ func (g *GRPC) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 // NewGRPC returns a new GRPC.
 func newGRPC() *GRPC {
 	g := &GRPC{
-		p: new(random),
+		p: new(pkg.Random),
 	}
 	return g
 }
@@ -104,28 +105,26 @@ func (g *GRPC) Name() string { return "grpc" }
 // Len returns the number of configured proxies.
 func (g *GRPC) len() int { return len(g.proxies) }
 
-func (g *GRPC) match(state request.Request) bool {
-	if !plugin.Name(g.from).Matches(state.Name()) || !g.isAllowedDomain(state.Name()) {
-		return false
-	}
-
-	return true
-}
-
-func (g *GRPC) isAllowedDomain(name string) bool {
-	if dns.Name(name) == dns.Name(g.from) {
-		return true
-	}
-
-	for _, ignore := range g.ignored {
-		if plugin.Name(ignore).Matches(name) {
-			return false
-		}
-	}
-	return true
-}
-
 // List returns a set of proxies to be used for this client depending on the policy in p.
-func (g *GRPC) list() []*Proxy { return g.p.List(g.proxies) }
+//func (g *GRPC) list() []*Proxy { return g.p.List(g.proxies).([]*Proxy) }
+func (g *GRPC) list() []*Proxy {
+	slice := g.p.List(structToInterface(g.proxies))
+	proxySlice := make([]*Proxy, len(slice))
+	for _, s := range slice {
+		proxySlice = append(proxySlice, s.(*Proxy))
+	}
+	return proxySlice
+}
+
+func (g *GRPC) From() string { return g.from }
 
 const defaultTimeout = 5 * time.Second
+
+func structToInterface(proxies []*Proxy) []interface{} {
+	res := make([]interface{}, len(proxies))
+
+	for _, p := range proxies {
+		res = append(res, p)
+	}
+	return res
+}
