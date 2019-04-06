@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -63,6 +64,7 @@ const (
 func (rule *exactNameRule) Rewrite(ctx context.Context, state request.Request) Result {
 	if rule.From == state.Name() {
 		state.Req.Question[0].Name = rule.To
+		RequestRewriteNameCount.WithLabelValues(metrics.WithServer(context.Background()), ExactMatch, rule.From, rule.To).Inc()
 		return RewriteDone
 	}
 	return RewriteIgnored
@@ -72,6 +74,7 @@ func (rule *exactNameRule) Rewrite(ctx context.Context, state request.Request) R
 func (rule *prefixNameRule) Rewrite(ctx context.Context, state request.Request) Result {
 	if strings.HasPrefix(state.Name(), rule.Prefix) {
 		state.Req.Question[0].Name = rule.Replacement + strings.TrimPrefix(state.Name(), rule.Prefix)
+		RequestRewriteNameCount.WithLabelValues(metrics.WithServer(context.Background()), PrefixMatch, "", "").Inc()
 		return RewriteDone
 	}
 	return RewriteIgnored
@@ -81,6 +84,7 @@ func (rule *prefixNameRule) Rewrite(ctx context.Context, state request.Request) 
 func (rule *suffixNameRule) Rewrite(ctx context.Context, state request.Request) Result {
 	if strings.HasSuffix(state.Name(), rule.Suffix) {
 		state.Req.Question[0].Name = strings.TrimSuffix(state.Name(), rule.Suffix) + rule.Replacement
+		RequestRewriteNameCount.WithLabelValues(metrics.WithServer(context.Background()), SuffixMatch, "", "").Inc()
 		return RewriteDone
 	}
 	return RewriteIgnored
@@ -91,6 +95,7 @@ func (rule *suffixNameRule) Rewrite(ctx context.Context, state request.Request) 
 func (rule *substringNameRule) Rewrite(ctx context.Context, state request.Request) Result {
 	if strings.Contains(state.Name(), rule.Substring) {
 		state.Req.Question[0].Name = strings.Replace(state.Name(), rule.Substring, rule.Replacement, -1)
+		RequestRewriteNameCount.WithLabelValues(metrics.WithServer(context.Background()), SubstringMatch, "", "").Inc()
 		return RewriteDone
 	}
 	return RewriteIgnored
@@ -111,6 +116,7 @@ func (rule *regexNameRule) Rewrite(ctx context.Context, state request.Request) R
 		}
 	}
 	state.Req.Question[0].Name = s
+	RequestRewriteNameCount.WithLabelValues(metrics.WithServer(context.Background()), RegexMatch, "", "").Inc()
 	return RewriteDone
 }
 
